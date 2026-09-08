@@ -1,0 +1,5 @@
+.env
+*~
+build
+output.json
+output.txt
