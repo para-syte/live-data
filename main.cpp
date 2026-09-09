@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <iomanip>
 #include "json.hpp"
 
 using json = nlohmann::json;
@@ -55,6 +56,11 @@ std::string stockSymbol(std::string symbol) {
       "date=2026-09-08T08:30:00&end_date=2026-09-08T15:00:00";
   endLink.insert(8, symbol);
   return endLink;
+}
+
+void tableOutput() {
+  std::cout << std::format("{:<5} {:<15} {:<12}\n", "ID", "Name", "Role");
+  std::cout << std::string(3, '-') << "\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -105,8 +111,10 @@ int main(int argc, char *argv[]) {
 
   // std::cout << data << std::endl;
 
-  std::cout << data["meta"]["symbol"] << std::endl;
-  std::cout << data["values"][0]["close"] << std::endl;
+  // std::cout << data["meta"]["symbol"] << std::endl;
+  // std::cout << data["values"][0]["close"] << std::endl;
+
+  tableOutput();
    
   free(chunk.memory);
   chunk.memory = NULL;
