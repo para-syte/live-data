@@ -11,10 +11,11 @@
 #include "json.hpp"
 
 using json = nlohmann::json;
-
 namespace fs =std::filesystem;
 
-const char *envVariable = std::getenv("API_KEY");
+const char *envVariable = std::getenv("TWELVEDATA_API_KEY");
+std::string firstLink = "https://api.twelvedata.com/time_series?apikey=";
+std::string apiString = envVariable;
 
 //struct with members which we use
 struct MemoryStruct {
@@ -47,6 +48,15 @@ size_t wcb(char *data, size_t size, size_t nmemeb, void *userdata) {
   return real_size;
 }
 
+// function to insert ticker into the url
+std::string stockSymbol(std::string symbol) {
+  std::string endLink =
+      "&symbol=&interval=30min&format=JSON&type=stock&timezone=exchange&start_"
+      "date=2026-09-08T08:30:00&end_date=2026-09-08T15:00:00";
+  endLink.insert(8, symbol);
+  return endLink;
+}
+
 int main(int argc, char *argv[]) {
   CURL *curl  = curl_easy_init();
   CURLcode result;
@@ -71,9 +81,7 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  std::string firstLink = "https://api.twelvedata.com/time_series?apikey=";
-  std::string apiString = envVariable;
-  std::string endLink = "&symbol=AAPL&interval=1min&format=JSON&timezone=America/Chicago&type=stock";
+  std::string endLink = stockSymbol("AAPL");
   std::string fullLink = firstLink + apiString + endLink;
   
   curl_easy_setopt(
@@ -90,9 +98,9 @@ int main(int argc, char *argv[]) {
   }
 
   oFile << chunk.memory; // write to file
-  oFile.close(); // immediately close the file to be able to read from it
+  oFile.close(); // immediately close
   std::ifstream f(
-      "output.json"); // can only pass the file name as a string NOT an object
+      "output.json"); // file for reading (can only pass the file name as a string NOT an object)
   json data = json::parse(f); // parsing the json file
 
   // std::cout << data << std::endl;
