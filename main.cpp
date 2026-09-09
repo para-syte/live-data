@@ -1,4 +1,5 @@
 // compile with -lcurl flag at the end of the command
+//to-do: output with respective data, things like symbols, times, volume, and price for now
 
 #include <cstdlib>
 #include <cstring>
@@ -85,7 +86,7 @@ int main(int argc, char *argv[]) {
 
   if (result != CURLE_OK) {
     std::cerr << "error:\n" << curl_easy_strerror(result);
-    return -1;
+    exit(-1);
   }
 
   oFile << chunk.memory; // write to file
@@ -93,8 +94,12 @@ int main(int argc, char *argv[]) {
   std::ifstream f(
       "output.json"); // can only pass the file name as a string NOT an object
   json data = json::parse(f); // parsing the json file
-  
- 
+
+  // std::cout << data << std::endl;
+
+  std::cout << data["meta"]["symbol"] << std::endl;
+  std::cout << data["values"][0]["close"] << std::endl;
+   
   free(chunk.memory);
   chunk.memory = NULL;
   curl_easy_cleanup(curl);
