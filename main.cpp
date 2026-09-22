@@ -1,5 +1,9 @@
-// compile with -lcurl flag at the end of the command
-//to-do: output with respective data, things like symbols, times, volume, and price for now
+// before compiling run,
+//  set -a
+//  source .env
+//  set +a
+// to compile g++ -std=c++20 main.cpp -o build -lcurl
+// to-do: output with respective data, things like symbols, times, volume, and price for now, eventually add tui with live data.
 
 #include <cstdlib>
 #include <cstring>
@@ -8,7 +12,6 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <iomanip>
 #include "json.hpp"
 
 using json = nlohmann::json;
@@ -58,9 +61,16 @@ std::string stockSymbol(std::string symbol) {
   return endLink;
 }
 
-void tableOutput() {
-  std::cout << std::format("{:<5} {:<15} {:<12}\n", "ID", "Name", "Role");
-  std::cout << std::string(3, '-') << "\n";
+auto httpsSetGet() {
+  
+}
+
+void tableOutput(std::string ticker) {
+  std::cout << std::format("{:<8} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}\n",
+                           "Ticker", "Open price", "Open volume", "Midday price", "Midday volume", "Close price", "Close volume");
+  std::cout << std::string(101, '-') << "\n";
+  std::cout << ticker;
+  std::cout << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -111,10 +121,12 @@ int main(int argc, char *argv[]) {
 
   // std::cout << data << std::endl;
 
+  std::string ticker = data["meta"]["symbol"];
+
   // std::cout << data["meta"]["symbol"] << std::endl;
   // std::cout << data["values"][0]["close"] << std::endl;
 
-  tableOutput();
+  tableOutput(ticker);
    
   free(chunk.memory);
   chunk.memory = NULL;
