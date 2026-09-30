@@ -13,12 +13,9 @@
 #include <curl/easy.h>
 #include <stdio.h>
 #include <iostream>
-#include <fstream>
-#include <filesystem>
 #include "json.hpp"
 
 using json = nlohmann::json;
-namespace fs = std::filesystem;
 
 //struct with members which we use
 struct MemoryStruct {
@@ -101,11 +98,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
   
-  // std::string fileName = "output.json";
-  // if (fs::exists(fileName)) {
-  //   fs::remove(fileName);
-  // }
-  // std::ofstream oFile(fileName);
   struct MemoryStruct chunk;
   chunk.memory = static_cast<char *>(malloc(1));
   chunk.size = {0};
@@ -115,11 +107,7 @@ int main(int argc, char *argv[]) {
 
   httpsSetGet(curl, result, chunk, fullLink);
 
-  // oFile << chunk.memory; // write to file
-  // oFile.close(); // immediately close
-  std::ifstream f(
-      "output.json"); // file for reading (can only pass the file name as a string NOT an object)
-  json data = json::parse(f); // parsing the json file
+  json data = json::parse(chunk.memory); // parsing the json data directly
 
   // std::cout << data << std::endl;
 
