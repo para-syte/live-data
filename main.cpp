@@ -13,9 +13,13 @@
 #include <curl/easy.h>
 #include <stdio.h>
 #include <iostream>
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/screen.hpp>
+#include <ftxui/component/screen_interactive.hpp>
 #include "json.hpp"
 
 using json = nlohmann::json;
+using namespace ftxui;
 
 //struct with members which we use
 struct MemoryStruct {
@@ -67,7 +71,7 @@ void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::s
   result = curl_easy_perform(curl); //performs the GET
 
   if (result != CURLE_OK) {
-    std::cerr << "error:\n" << curl_easy_strerror(result);
+    std::cerr << "error:" << curl_easy_strerror(result) << std::endl;
     exit(-1);
   }
 
@@ -82,6 +86,26 @@ void tableOutput(std::string ticker) {
 }
 
 int main(int argc, char *argv[]) {
+  Element document = vbox({
+      text("FTXUI") | bold | center,
+      separator(),
+      hbox({
+          text("left panel") | border,
+          vbox({
+              text("main area") | flex,
+              separator(),
+              text("footer info") | dim,
+          }) | border |
+              flex,
+      }) | flex,
+  });
+
+  auto screen = Screen::Create(Dimension::Full(), Dimension::Full());
+  // auto screen = ScreenInteractive::TerminalOutput();
+  // screen.Loop(component);
+  Render(screen, document);
+  screen.Print();
+
   const char *envVariable = std::getenv("TWELVEDATA_API_KEY");
   if (envVariable == nullptr) {
     std::cerr << "api key is null\n";
@@ -116,7 +140,7 @@ int main(int argc, char *argv[]) {
   // std::cout << data["meta"]["symbol"] << std::endl;
   // std::cout << data["values"][0]["close"] << std::endl;
 
-  tableOutput(ticker);
+  // tableOutput(ticker);
 
   free(chunk.memory);
   chunk.memory = NULL;
