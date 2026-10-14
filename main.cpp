@@ -17,6 +17,7 @@
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/component/component.hpp>
+#include <ftxui/dom/table.hpp> 
 #include <chrono>
 #include <thread>
 #include "json.hpp"
@@ -80,34 +81,33 @@ void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::s
   }
 }
 
-void createUI() {
+void createUI(std::string ticker) {
   //creates screen terminal/fullscreen
   auto screen = ScreenInteractive::Fullscreen();
   int counter = 0;
 
-  FlexboxConfig config;
-  config.justify_content = FlexboxConfig::JustifyContent::SpaceBetween;
-
-  Element flex_layout = flexbox({
-      text("Element A"),
-      separator(),
-      text("Element B") | flex,
-      separator(),
-      text("Element C") | flex
-    }, config);
-
+  table.SelectAll().Border(LIGHT);
+  table.SelectColumn(0).Border(LIGHT);
+  table.SelectRow(0).Decorate(bold);
+  table.SelectRow(0).SeparatorVertical(LIGHT);
+  table.SelectRow(0).Border(DOUBLE);
+  table.SelectColumn(2).DecorateCells(align_right);
+  auto content = table.SelectRows(1, -1);
+  content.DecorateCellsAlternateRow(color(Color::Blue), 3, 0);
+  content.DecorateCellsAlternateRow(color(Color::Cyan), 3, 1);
+  content.DecorateCellsAlternateRow(color(Color::White), 3, 2);
+  table.SelectCell(3, 4).Border(LIGHT, color(Color::Red));
+  table.SelectCell(2, 7).Border(LIGHT, color(Color::Red));
+    
   //renderer component for data,
   //[&] used to reference outside of lambda variables
   auto renderer = Renderer([&] {
-    return vbox({
-        border(flex_layout),
-        // text("output"),
-        // filler(),
-        // text("nvidia"),
-        // separator(),
-        // text("live data: " + std::to_string(counter)),
-      }) |
-      border;
+    auto table = Table({
+        {"Ticker", "Current Price", "Volume", "Open", "High", "Low"},
+      });
+    table.SelectAll().Border(LIGHT);
+    table.SelectAll().Separator(LIGHT);
+    return table.Render();
   });
 
   //thread used to update counter
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 
   std::string ticker = data["meta"]["symbol"];
 
-  createUI();
+  createUI(ticker);
 
   //freeing allocated memory and resetting it to null
   free(chunk.memory);
