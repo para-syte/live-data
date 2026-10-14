@@ -2,9 +2,9 @@
 //  set -a
 //  source .env
 //  set +a
-// to compile g++ -std=c++20 main.cpp -o build -lcurl
-// to-do: output with respective data, things like symbols, times, volume, and price for now, eventually add tui with live data.
+// to-do: output with data, things like symbols, times, volume, and price for now, eventually add tui with live data.
 
+//read more on thread safety
 //want to eventually add socket programming for the live data part.
 
 #include <cstdlib>
@@ -16,12 +16,15 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/component/screen_interactive.hpp>
+#include <ftxui/component/component.hpp>
+#include <chrono>
+#include <thread>
 #include "json.hpp"
 
 using json = nlohmann::json;
 using namespace ftxui;
 
-//struct with members which we use
+//memorystruct for memory and size
 struct MemoryStruct {
   char *memory;
   size_t size;
@@ -61,6 +64,7 @@ std::string stockSymbol(std::string symbol) {
   return endLink;
 }
 
+//function to establish connection
 void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::string fullLink) {
   curl_easy_setopt(
       curl, CURLOPT_URL,
@@ -77,34 +81,33 @@ void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::s
 
 }
 
-void tableOutput(std::string ticker) {
-  std::cout << std::format("{:<8} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}\n",
-                           "Ticker", "Open price", "Open volume", "Midday price", "Midday volume", "Close price", "Close volume");
-  std::cout << std::string(101, '-') << "\n";
-  std::cout << ticker;
-  std::cout << std::endl;
-}
-
 int main(int argc, char *argv[]) {
-  Element document = vbox({
-      text("FTXUI") | bold | center,
-      separator(),
-      hbox({
-          text("left panel") | border,
-          vbox({
-              text("main area") | flex,
-              separator(),
-              text("footer info") | dim,
-          }) | border |
-              flex,
-      }) | flex,
+  //creates screen terminal/fullscreen
+  auto screen = ScreenInteractive::Fullscreen();
+  int counter = 0;
+
+  // renderer component for data,
+  // [&] used to reference outside of lambda variables
+  auto renderer = Renderer([&] {
+    return vbox({
+               text("output"),
+               separator(),
+               text("live data: " + std::to_string(counter)),
+           }) |
+           border;
   });
 
-  auto screen = Screen::Create(Dimension::Full(), Dimension::Full());
-  // auto screen = ScreenInteractive::TerminalOutput();
-  // screen.Loop(component);
-  Render(screen, document);
-  screen.Print();
+  //thread used to update counter
+  std::thread worker([&]() {
+    while (true) {
+      //thread sleep for 500ms
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      counter++;
+      screen.PostEvent(Event::Custom); //tells ftxui to wake up because of event
+    }
+  });
+  
+  screen.Loop(renderer);
 
   const char *envVariable = std::getenv("TWELVEDATA_API_KEY");
   if (envVariable == nullptr) {
@@ -113,7 +116,8 @@ int main(int argc, char *argv[]) {
   }
   std::string firstLink = "https://api.twelvedata.com/time_series?apikey=";
   std::string apiString = envVariable;
-  
+
+  //only use once because we are only establishing one connection atm
   CURL *curl = curl_easy_init();
   CURLcode result;
 
@@ -121,11 +125,14 @@ int main(int argc, char *argv[]) {
     std::cerr << "http request failed.\n";
     return -1;
   }
-  
+
+  //allocate 1 byte and size of 0 so we have something
+  //wcb will update accordingly
   struct MemoryStruct chunk;
   chunk.memory = static_cast<char *>(malloc(1));
   chunk.size = {0};
 
+  //making full link with specific symbol/ticker
   std::string endLink = stockSymbol("AAPL");
   std::string fullLink = firstLink + apiString + endLink;
 
@@ -133,15 +140,9 @@ int main(int argc, char *argv[]) {
 
   json data = json::parse(chunk.memory); // parsing the json data directly
 
-  // std::cout << data << std::endl;
-
   std::string ticker = data["meta"]["symbol"];
 
-  // std::cout << data["meta"]["symbol"] << std::endl;
-  // std::cout << data["values"][0]["close"] << std::endl;
-
-  // tableOutput(ticker);
-
+  //freeing allocated memory and resetting it to null
   free(chunk.memory);
   chunk.memory = NULL;
   curl_easy_cleanup(curl);
