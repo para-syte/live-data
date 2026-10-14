@@ -2,12 +2,15 @@
 //  set -a
 //  source .env
 //  set +a
-//  currentl working on setting up ftxui -> socket programming for live data
+//  currently working on setting up ftxui -> socket programming for live data
+// to do: fill table with relevant data, fix string with september date, make table take up full screen
 
-//read more on thread safety
+// read more on thread safety
 
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <format>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <ftxui/dom/flexbox_config.hpp>
@@ -25,22 +28,22 @@
 using json = nlohmann::json;
 using namespace ftxui;
 
-//memorystruct for memory and size
+// memorystruct for memory and size
 struct MemoryStruct {
   char *memory;
   size_t size;
 };
 
-//function with parameters for data being read
+// function with parameters for data being read
 size_t wcb(char *data, size_t size, size_t nmemeb, void *userdata) {
   auto real_size{size * nmemeb}; // size of data received
 
-  //ptr pointing to chunk in main
+  // ptr pointing to chunk in main
   struct MemoryStruct *mem {
     (struct MemoryStruct *)userdata
   };
   
-  //need to allocate memory of previous size + new size of the data + null terminator
+  // need to allocate memory of previous size + new size of the data + null terminator
   char *ptr =
       static_cast<char *>(realloc(mem->memory, mem->size + real_size + 1));
 
@@ -49,8 +52,8 @@ size_t wcb(char *data, size_t size, size_t nmemeb, void *userdata) {
   }
 
   mem->memory = ptr;
-  std::memcpy(&(mem->memory[mem->size]), data, real_size); //maps the new data into the correct index of the previous data 
-  mem->size += real_size; //new size is basically previous data + new data
+  std::memcpy(&(mem->memory[mem->size]), data, real_size); // maps the new data into the correct index of the previous data 
+  mem->size += real_size; // new size is basically previous data + new data
   mem->memory[mem->size] = 0; //
 
   return real_size;
@@ -58,14 +61,21 @@ size_t wcb(char *data, size_t size, size_t nmemeb, void *userdata) {
 
 // function to insert ticker into the url
 std::string stockSymbol(std::string symbol) {
+  // time_point used to fetch current system date
+  auto now = std::chrono::system_clock::now();
+  std::string date = std::format(":%Y-%m-%d", now);
   std::string endLink =
       "&symbol=&interval=30min&format=JSON&type=stock&timezone=exchange&start_"
-      "date=2026-09-08T08:30:00&end_date=2026-09-08T15:00:00";
+      "date=2026-09-T08:30:00&end_date=2026-09-08T15:00:00";
+  // not the most ideal way to insert the date but this will do for now
+  endLink.insert(105, date);
+  endLink.insert(76, date);  
   endLink.insert(8, symbol);
+  
   return endLink;
 }
 
-//function to establish connection
+// function to establish connection
 void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::string fullLink) {
   curl_easy_setopt(
       curl, CURLOPT_URL,
@@ -81,17 +91,18 @@ void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::s
   }
 }
 
-void createUI(std::string ticker) {
-  //creates screen terminal/fullscreen
+void createUI(std::string ticker, json data) {
+  // creates screen terminal/fullscreen
   auto screen = ScreenInteractive::Fullscreen();
   int counter = 0;
      
-  //renderer component for data,
-  //[&] used to reference outside of lambda variables
+  /* renderer component for data,
+    [&] used to reference outside of lambda variables */
   auto renderer = Renderer([&] {
+    // currently putting dummy values, NEED TO FIX
     auto table = Table({
         {"TICKER", "CURRENT PRICE", "VOLUME", "OPEN", "HIGH", "LOW"},
-        {"2.3", "Gingerbread", "February 9 2011", "10", "Dalvik 1.4.0"},
+        {ticker, data["values"][0]["close"], data["values"][0]["volume"], "10", "Dalvik 1.4.0"},
         {"4.0", "Ice Cream Sandwich", "October 19 2011", "15", "Dalvik"},
         {"4.1", "Jelly Bean", "July 9 2012", "16", "Dalvik"},
         {"4.2", "Jelly Bean", "November 13 2012", "17", "Dalvik"},
@@ -112,7 +123,6 @@ void createUI(std::string ticker) {
     table.SelectAll().Border(LIGHT);
     for (int i = 0; i < 6; i++) {
       table.SelectColumn(i).Border(LIGHT);
-      // table.SelectRow(i).Decorate(bold);
       table.SelectRow(i).SeparatorVertical(LIGHT);
       table.SelectRow(0).Border(DOUBLE);
     }
@@ -123,16 +133,16 @@ void createUI(std::string ticker) {
     content.DecorateCellsAlternateRow(color(Color::Cyan), 3, 1);
     content.DecorateCellsAlternateRow(color(Color::White), 3, 2);
 
-    return table.Render() | flex;
+    return table.Render();
   });
 
-  //thread used to update counter
+  // thread used to update counter
   std::thread worker([&]() {
     while (true) {
-      //thread sleep for 500ms
+      // thread sleep for 500ms
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
       counter++;
-      screen.PostEvent(Event::Custom); //tells ftxui to wake up because of event
+      screen.PostEvent(Event::Custom); // tells ftxui to wake up because of event
     }
   });
   
@@ -149,7 +159,7 @@ int main(int argc, char *argv[]) {
   std::string firstLink = "https://api.twelvedata.com/time_series?apikey=";
   std::string apiString = envVariable;
 
-  //only use once because we are only establishing one connection atm
+  // only use once because we are only establishing one connection atm
   CURL *curl = curl_easy_init();
   CURLcode result;
 
@@ -158,13 +168,13 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  //allocate 1 byte and size of 0 so we have something
-  //wcb will update accordingly
+  // allocate 1 byte and size of 0 so we have something
+  // wcb will update accordingly
   struct MemoryStruct chunk;
   chunk.memory = static_cast<char *>(malloc(1));
   chunk.size = {0};
 
-  //making full link with specific symbol/ticker
+  // making full link with specific symbol/ticker
   std::string endLink = stockSymbol("AAPL");
   std::string fullLink = firstLink + apiString + endLink;
 
@@ -174,9 +184,9 @@ int main(int argc, char *argv[]) {
 
   std::string ticker = data["meta"]["symbol"];
 
-  createUI(ticker);
+  createUI(ticker, data);
 
-  //freeing allocated memory and resetting it to null
+  // freeing allocated memory and resetting it to null
   free(chunk.memory);
   chunk.memory = NULL;
   curl_easy_cleanup(curl);
