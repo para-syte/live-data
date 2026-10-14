@@ -2,15 +2,15 @@
 //  set -a
 //  source .env
 //  set +a
-// to-do: output with data, things like symbols, times, volume, and price for now, eventually add tui with live data.
+//  currentl working on setting up ftxui -> socket programming for live data
 
 //read more on thread safety
-//want to eventually add socket programming for the live data part.
 
 #include <cstdlib>
 #include <cstring>
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include <ftxui/dom/flexbox_config.hpp>
 #include <stdio.h>
 #include <iostream>
 #include <ftxui/dom/elements.hpp>
@@ -78,23 +78,36 @@ void httpsSetGet(CURL *curl, CURLcode result, struct MemoryStruct &chunk, std::s
     std::cerr << "error:" << curl_easy_strerror(result) << std::endl;
     exit(-1);
   }
-
 }
 
-int main(int argc, char *argv[]) {
+void createUI() {
   //creates screen terminal/fullscreen
   auto screen = ScreenInteractive::Fullscreen();
   int counter = 0;
 
-  // renderer component for data,
-  // [&] used to reference outside of lambda variables
+  FlexboxConfig config;
+  config.justify_content = FlexboxConfig::JustifyContent::SpaceBetween;
+
+  Element flex_layout = flexbox({
+      text("Element A"),
+      separator(),
+      text("Element B") | flex,
+      separator(),
+      text("Element C") | flex
+    }, config);
+
+  //renderer component for data,
+  //[&] used to reference outside of lambda variables
   auto renderer = Renderer([&] {
     return vbox({
-               text("output"),
-               separator(),
-               text("live data: " + std::to_string(counter)),
-           }) |
-           border;
+        border(flex_layout),
+        // text("output"),
+        // filler(),
+        // text("nvidia"),
+        // separator(),
+        // text("live data: " + std::to_string(counter)),
+      }) |
+      border;
   });
 
   //thread used to update counter
@@ -108,12 +121,15 @@ int main(int argc, char *argv[]) {
   });
   
   screen.Loop(renderer);
+}
 
+int main(int argc, char *argv[]) {
   const char *envVariable = std::getenv("TWELVEDATA_API_KEY");
   if (envVariable == nullptr) {
     std::cerr << "api key is null\n";
     exit(-1);
   }
+  
   std::string firstLink = "https://api.twelvedata.com/time_series?apikey=";
   std::string apiString = envVariable;
 
@@ -141,6 +157,8 @@ int main(int argc, char *argv[]) {
   json data = json::parse(chunk.memory); // parsing the json data directly
 
   std::string ticker = data["meta"]["symbol"];
+
+  createUI();
 
   //freeing allocated memory and resetting it to null
   free(chunk.memory);
